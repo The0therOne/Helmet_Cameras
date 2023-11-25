@@ -1,6 +1,6 @@
 {
   "name": "Helmet_Cameras",
-  "version_number": "1.0.3",
+  "version_number": "1.0.4",
   "website_url": "",
   "description": "For monitoring first person cameras on player's helmets. For best \"Camera Man\" experience.",
   "dependencies": [

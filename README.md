@@ -19,3 +19,6 @@ Mod adds helmet cameras for all players, then displays video (High Quality 1024x
 
 # Version 1.0.3
 - Fix case when active camera's player left the game, other cameras were not available.
+
+# Version 1.0.4
+- Added config file for turning off/on High Quality Monitor (config/RickArg.lethalcompany.helmetcameras.cfg) Default Value: true
