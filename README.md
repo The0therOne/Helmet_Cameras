@@ -1,6 +1,9 @@
 # Helmet Cameras
 Mod adds pov helmet cameras for players, that displays video on the second large monitor at ship. For better CameraMan/ShipGuy/Operator experience for my opinion.
 
+# WARNING
+If rework have a critical problems, please create issue in github, and use 1.0.4 until i will fix 2.0.0
+
 # Features
 - Helmets cameras for more than 4 players.
 - Mod displays videos from helmet's cameras to second large monitor. It means, that security camera outside the ship now displays on small monitor above the large. Inside ship camera, now is turned off.
@@ -30,3 +33,6 @@ Mod adds pov helmet cameras for players, that displays video on the second large
 - Less resources require (Now its only 1 camera that change position)
 - New quality options in config
 - Less camera glitches, but still it has some.
+
+# Version 2.0.1
+- Now you can set renderDistance in config. Default: 70 (in 2.0.0 renderDistance was 150) You play with number to increase fps.
