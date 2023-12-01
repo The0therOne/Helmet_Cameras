@@ -1,7 +1,7 @@
 {
   "name": "Helmet_Cameras",
-  "version_number": "1.0.4",
-  "website_url": "",
+  "version_number": "2.1.0",
+  "website_url": "https://github.com/The0therOne/Helmet_Cameras",
   "description": "For monitoring first person cameras on player's helmets. For best \"Camera Man\" experience.",
   "dependencies": [
     "BepInEx-BepInExPack-5.4.2100"
