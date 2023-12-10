@@ -7,6 +7,10 @@ Mod adds pov helmet cameras for players, that displays video on the second large
 - Config for setting quality (High Quality mode. 0 - vanilla (48x48), 1 - vanilla+ (128x128), 2 - mid quality (256x256), 3 - high quality (512x512), 4 - Very High Quality (1024x1024) Default: 0 (Vanilla)
 - Synced videos on monitor for all players
 
+# WARNING
+If new update dont work or have some critical bugs, please download previous version and make issue on github please.
+P.S. But it should be ok ;)
+
 # Releases
 
 # Version 1.0.0
@@ -50,3 +54,7 @@ Thanks a lot to creator of modpack (https://thunderstore.io/c/lethal-company/p/M
 - Performance boost. Now camera freeze (as vanilla radar) while local player not in ship.
 Sorry for 2 fixes in 5 min that you have to download ;)
 WARNING: If something goes wrong, please downgrade version to 2.1.2 and make an issue on github.
+
+# Version 2.1.4
+- Fixed bug, when the camera sometimes didnt stop to render video (while player outside of ship).
+(Thanks Glitch for testing update!)
