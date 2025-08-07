@@ -5,6 +5,7 @@ using HarmonyLib;
 using UnityEngine;
 using BepInEx.Configuration;
 using UnityEngine.SceneManagement;
+using GameNetcodeStuff;
 
 namespace HelmetCamera
 {
@@ -92,7 +93,17 @@ namespace HelmetCamera
             }
 
             // Checking what scene is loaded. We dont need CameraMod in MainMenu, InitScene, InitSceneLaunchOptions
-            bool sceneflag = (SceneManager.GetActiveScene().name != "MainMenu") && (SceneManager.GetActiveScene().name != "InitScene") && (SceneManager.GetActiveScene().name != "InitSceneLaunchOptions");
+            bool sceneflag = true;
+
+            switch (SceneManager.GetActiveScene().name)
+            {
+                case "MainMenu":
+                case "InitScene":
+                case "InitSceneLaunchOptions":
+                    sceneflag = false;
+                break;
+            }
+            
             if (sceneflag)
             {
                 isSceneLoaded = true;
@@ -112,29 +123,38 @@ namespace HelmetCamera
             // Waiting ~5 seconds for scene is fully loaded
             yield return new WaitForSeconds(5f);
             isCoroutineStarted = true;
-            bool isCameraFound = GameObject.Find("Environment/HangarShip/Cameras/ShipCamera") != null;
+
+            // Reduce amount of searches by caching
+            GameObject foundHangarShip = GameObject.Find("Environment/HangarShip");
+            Transform foundMonitorWall = foundHangarShip.transform.Find("ShipModels2b/MonitorWall");
+            Transform foundShipCamera = foundHangarShip.transform.Find("Cameras/ShipCamera");
+
+            bool isCameraFound = foundShipCamera != null;
             if (isCameraFound)
             {
-                Debug.Log("[HELMET_CAMERAS] Ship camera founded...");
+                Debug.Log("[HELMET_CAMERAS] Ship camera found...");
                 if (!isMonitorChanged)
                 {
-                    GameObject.Find("Environment/HangarShip/ShipModels2b/MonitorWall/Cube")
-                        .GetComponent<MeshRenderer>().materials[2].mainTexture = GameObject.Find("Environment/HangarShip/ShipModels2b/MonitorWall/Cube.001")
+                    Transform foundCube001 = foundMonitorWall.Find("Cube.001");
+                    
+                    foundMonitorWall.Find("Cube")
+                        .GetComponent<MeshRenderer>().materials[2].mainTexture = foundCube001
                         .GetComponent<MeshRenderer>().materials[2].mainTexture;
-                    GameObject.Find("Environment/HangarShip/ShipModels2b/MonitorWall/Cube.001").GetComponent<MeshRenderer>().materials[2].mainTexture = renderTexture;
-
-                    helmetCameraNew.AddComponent<Camera>();
-                    helmetCameraNew.GetComponent<Camera>().enabled = false;
-                    helmetCameraNew.GetComponent<Camera>().targetTexture = renderTexture;
-                    helmetCameraNew.GetComponent<Camera>().cullingMask = 20649983;
-                    helmetCameraNew.GetComponent<Camera>().farClipPlane = renderDistance;
-                    helmetCameraNew.GetComponent<Camera>().nearClipPlane = 0.55f;
+                    foundCube001.GetComponent<MeshRenderer>().materials[2].mainTexture = renderTexture;
+                    
+                    // Reduce get calls by using reference to camera
+                    Camera newCamera = helmetCameraNew.AddComponent<Camera>();
+                    newCamera.enabled = false;
+                    newCamera.targetTexture = renderTexture;
+                    newCamera.cullingMask = 20649983;
+                    newCamera.farClipPlane = renderDistance;
+                    newCamera.nearClipPlane = 0.55f;
 
                     isMonitorChanged = true;
                     Debug.Log("[HELMET_CAMERAS] Monitors were changed...");
 
                     Debug.Log("[HELMET_CAMERAS] Turning off vanilla internal ship camera");
-                    GameObject.Find("Environment/HangarShip/Cameras/ShipCamera").GetComponent<Camera>().enabled = false;
+                    foundShipCamera.GetComponent<Camera>().enabled = false;
                 }
             }
             yield break;
@@ -160,35 +180,59 @@ namespace HelmetCamera
                 {
                     helmetCameraNew.GetComponent<Camera>().enabled = false;
                 }
-                GameObject cameraMonitorScriptobj = GameObject.Find("Environment/HangarShip/ShipModels2b/MonitorWall/Cube.001/CameraMonitorScript");
-                currentTransformIndex = cameraMonitorScriptobj.GetComponent<ManualCameraRenderer>().targetTransformIndex;
-                TransformAndName transformAndName = cameraMonitorScriptobj.GetComponent<ManualCameraRenderer>().radarTargets[currentTransformIndex];
-                if (!transformAndName.isNonPlayer)
+                
+                ManualCameraRenderer cameraMonitorScriptobj = StartOfRound.Instance.mapScreen;
+                currentTransformIndex = cameraMonitorScriptobj.targetTransformIndex;
+                TransformAndName currentRadarTarget = cameraMonitorScriptobj.radarTargets[currentTransformIndex];
+
+                // Set transform to found position
+                helmetCameraNew.transform.SetPositionAndRotation(
+                    currentRadarTarget.transform.position + (Vector3.up * 1.6f),
+                    currentRadarTarget.transform.rotation * Quaternion.Euler(0f, -90f, 0f)
+                );
+
+                // Otherwise set position to targetPlayer, 
+                // if dead to deadBody, 
+                // -> if spine not found, use already previously set position above
+                if (!currentRadarTarget.isNonPlayer && cameraMonitorScriptobj.targetedPlayer != null)
                 {
-                    try
+                    // Tagret player if not dead
+                    if (!cameraMonitorScriptobj.targetedPlayer.isPlayerDead)
                     {
-                        helmetCameraNew.transform.SetPositionAndRotation(transformAndName.transform.Find("ScavengerModel/metarig/CameraContainer/MainCamera/HelmetLights").position + new Vector3(0f, 0f, 0f),
-                            transformAndName.transform.Find("ScavengerModel/metarig/CameraContainer/MainCamera/HelmetLights").rotation * Quaternion.Euler(0f, 0f, 0f));
+                        Transform playerVisor = cameraMonitorScriptobj.targetedPlayer.visorCamera.transform;
+                        helmetCameraNew.transform.SetPositionAndRotation(playerVisor.position, playerVisor.rotation);
+                    }
+                    else // Target body if found
+                    {
+                        DeadBodyInfo deadBody = cameraMonitorScriptobj.targetedPlayer.deadBody;
+                        Transform spine = null;
 
-                        DeadBodyInfo[] deadBodies = UnityEngine.Object.FindObjectsOfType<DeadBodyInfo>();
-
-                        for (int i = 0; i < deadBodies.Length; i++)
+                        // Assuming there are any body parts
+                        if (deadBody.bodyParts.Length > 0)
                         {
-                            if (deadBodies[i].playerScript.playerUsername == transformAndName.name)
+                            // Check assumption that deadBody.bodyParts[0] is "spine.004"
+                            // if true, check if it's parent is "spine.003"
+                            if (deadBody.bodyParts[0].name == "spine.004")
                             {
-                                helmetCameraNew.transform.SetPositionAndRotation(deadBodies[i].gameObject.transform.Find("spine.001/spine.002/spine.003").position, deadBodies[i].gameObject.transform.Find("spine.001/spine.002/spine.003").rotation * Quaternion.Euler(0f, 0f, 0f));
+                                if (deadBody.bodyParts[0].transform.parent.name == "spine.003")
+                                {
+                                    spine = deadBody.bodyParts[0].transform.parent;
+                                }
+                            }
+                            else // otherwise use slower search:
+                            {
+                                spine = deadBody.transform.Find("spine.001/spine.002/spine.003");
                             }
                         }
+
+                        // If spine found, set camera to it, 
+                        // otherwise use previously set position
+                        if (spine != null)
+                        { 
+                            helmetCameraNew.transform.SetPositionAndRotation(spine.position, spine.rotation);
+                        }
                     }
-                    catch (NullReferenceException e)
-                    {
-                        Debug.Log("[HELMET_CAMERAS] ERROR NULL REFERENCE");
-                    }
-                }
-                else
-                {
-                    helmetCameraNew.transform.SetPositionAndRotation(transformAndName.transform.position + new Vector3(0f, 1.6f, 0f),
-                        transformAndName.transform.rotation * Quaternion.Euler(0f, -90f, 0f));
+
                 }
             }
             else if (isConditionsDone && !StartOfRound.Instance.localPlayerController.isInHangarShipRoom)
@@ -206,17 +250,18 @@ namespace HelmetCamera.Patches
     [HarmonyPatch]
     internal class HelmetCamera
     {
+        // Patch the method that's called on every client when they load into new game
+        [HarmonyPatch(typeof(PlayerControllerB), nameof(PlayerControllerB.ConnectClientToPlayerObject))]
+        [HarmonyPostfix]
+        public static void OnLocalPlayerFullyLoaded()
+        {
+            InitCameras();
+        }
+
         public static void InitCameras()
         {
             GameObject shipCamera = GameObject.Find("Environment/HangarShip/Cameras/ShipCamera");
             shipCamera.AddComponent<Plugin>();
-        }
-
-        [HarmonyPatch(typeof(StartOfRound), "Start")]
-        [HarmonyPostfix]
-        public static void InitCamera(ref ManualCameraRenderer __instance)
-        {
-            InitCameras();
         }
     }
 }
